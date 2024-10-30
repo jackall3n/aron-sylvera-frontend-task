@@ -1,25 +1,12 @@
-'use client'
-
 import HeroHeading from '@/app/components/heroBanner';
 import { fetchProjectFeeds } from '@/app/apis/fetchProjectFeeds';
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { FeedEntry } from '@/app/types';
 
-export default function ProjectDetailPage() {
-  const { projectTitle } = useParams<{ projectTitle: string; }>();
+type Params = Promise<{ projectTitle: string }>;
 
-  const [feeds, setFeeds] = useState<FeedEntry[]>();
-  const [totalRecords, setTotalRecords] = useState<number>();
-
-  useEffect(() => {
-    async function getFeed() {
-        const { feeds, totalRecords } = await fetchProjectFeeds(projectTitle);
-        setFeeds(feeds);
-        setTotalRecords(totalRecords);
-    }
-    getFeed();
-  }, [projectTitle]);
+export default async function ProjectDetailPage(props: { params?: Params }) {
+  const params = props.params ? await props.params : { projectTitle: '' };
+  const { projectTitle } = params;
+  const { feeds, totalRecords } = await fetchProjectFeeds(projectTitle as string);
 
   // If `projectTitle` is missing, return a "not found" message
   if (!projectTitle) {
@@ -36,7 +23,6 @@ export default function ProjectDetailPage() {
     );
   }
 
-  // TO DO: Add loading states.
   if (!feeds) {
     return (
       <div>

@@ -1,57 +1,60 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import ProjectDetailPage from '../project/[projectTitle]/page';
-import fetchMock from 'jest-fetch-mock';
+import { fetchProjectFeeds } from '../apis/fetchProjectFeeds';
 import '@testing-library/jest-dom';
-import { useParams } from 'next/navigation';
 
-// Enable fetch mocks globally
-fetchMock.enableMocks();
-
-// Mock the useParams hook
-jest.mock('next/navigation', () => ({
-  useParams: jest.fn(),
-}));
+// Mock fetchProjectFeeds API function
+jest.mock('../apis/fetchProjectFeeds');
 
 describe('ProjectDetailPage', () => {
-  beforeEach(() => {
-    fetchMock.resetMocks();
+  it('displays "Project Not Found" when projectTitle is missing', async () => {
+    const mockParams = Promise.resolve({ projectTitle: '' });
+    render(<ProjectDetailPage params={mockParams} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Project Not Found')).toBeInTheDocument();
+      expect(screen.getByText('The project title was not provided.')).toBeInTheDocument();
+    });
   });
 
-  it('displays the project details when valid projectTitle is provided', async () => {
-    // Mock the project title parameter
-    (useParams as jest.Mock).mockReturnValue({ projectTitle: 'sampleProject' });
+  it('displays "Feeds info Not Found" when feeds are unavailable', async () => {
+    const mockParams = Promise.resolve({ projectTitle: 'Sample Project' });
+    (fetchProjectFeeds as jest.Mock).mockResolvedValue({ feeds: null, totalRecords: 0 });
 
-    // Mock API response for valid project with feeds
-    fetchMock.mockResponseOnce(JSON.stringify({
-      num_of_records: 15,
-      feeds: [
-        { device_id: '08BEAC0A08AE', gps_lat: 24.251, gps_lon: 120.539, timestamp: '2020-07-01T13:30:50Z' },
-        { device_id: '08BEAC0A08AF', gps_lat: 24.252, gps_lon: 120.540, timestamp: '2020-07-01T13:31:50Z' },
-      ]
-    }));
+    render(<ProjectDetailPage params={mockParams} />);
 
-    render(<ProjectDetailPage />);
-
-    const totalEntries = await screen.findByText(/Total Feed Entries: 15/i);
-    expect(totalEntries).toBeInTheDocument();
-
-    const deviceId = await screen.findByText('08BEAC0A08AE');
-    expect(deviceId).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Feeds info Not Found')).toBeInTheDocument();
+      expect(screen.getByText('Failed to load project details: API is down')).toBeInTheDocument();
+    });
   });
 
-  it('displays "No feed entries available" when feeds are empty', async () => {
-    // Mock the project title parameter
-    (useParams as jest.Mock).mockReturnValue({ projectTitle: 'sampleProject' });
+  it('displays project details when feeds are available', async () => {
+    const mockParams = Promise.resolve({ projectTitle: 'Sample Project' });
+    const mockFeeds = [
+      { device_id: '1234', gps_lat: '37.7749', gps_lon: '-122.4194', timestamp: '2024-01-01T10:00:00Z' },
+    ];
+    (fetchProjectFeeds as jest.Mock).mockResolvedValue({ feeds: mockFeeds, totalRecords: 1 });
 
-    // Mock API response with empty feeds
-    fetchMock.mockResponseOnce(JSON.stringify({
-      num_of_records: 0,
-      feeds: []
-    }));
+    render(<ProjectDetailPage params={mockParams} />);
 
-    render(<ProjectDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Project: Sample Project')).toBeInTheDocument();
+      expect(screen.getByText('Total Feed Entries: 1')).toBeInTheDocument();
+      expect(screen.getByText('Device ID')).toBeInTheDocument();
+      expect(screen.getByText('1234')).toBeInTheDocument();
+    });
+  });
 
-    const noFeedsMessage = await screen.findByText(/Latest 0 Feed Entries/i);
-    expect(noFeedsMessage).toBeInTheDocument();
+  it('displays an error message when fetching project details fails', async () => {
+    const mockParams = Promise.resolve({ projectTitle: 'Sample Project' });
+    (fetchProjectFeeds as jest.Mock).mockRejectedValue(new Error('Network Error'));
+
+    render(<ProjectDetailPage params={mockParams} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Project: Sample Project')).toBeInTheDocument();
+      expect(screen.getByText('Failed to load project details: Network Error')).toBeInTheDocument();
+    });
   });
 });

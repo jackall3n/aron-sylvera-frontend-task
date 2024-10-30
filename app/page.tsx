@@ -16,7 +16,7 @@ export default async function HomePage() {
           <ul>
             {projects.map((projectTitle) => (
               <li key={projectTitle} className="mb-2">
-                <Link href={`/project/${encodeURIComponent(projectTitle)}`} className="text-blue-600 hover:underline">
+                <Link href={`/project/${encodeURIComponent(projectTitle)}`} className="text-white underline hover:underline">
                   {projectTitle}
                 </Link>
               </li>
